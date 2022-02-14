@@ -1,0 +1,6 @@
+.DS_Store
+*.ipynb
+*.pyc
+.vscode
+learner/notes.md
+projects/
