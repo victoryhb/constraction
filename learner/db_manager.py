@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import datetime
-from collections import defaultdict
+from collections import defaultdict, Counter
 import sqlmodel
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 import pandas as pd
@@ -87,7 +87,6 @@ class DBManager:
             return [dict(task) for task in query.all()]
 
     def query_pattern(self, pattern, limit=None):
-        print("pattern:", pattern, end="; ")
         # using sqlmodel, select all rows from table "position" where pattern_id = (the id from the table pattern where form = pattern)
         parts = pattern.split("~")
         with Session(self.engine) as session:
@@ -102,34 +101,40 @@ class DBManager:
                 token_ids = tuple(int(i) for i in pos.token_ids.split(","))
                 pos_ids = (token.sentence_id,) + token_ids
                 sent_idx_to_tokens[pos_ids].append(token)
-        print("sent count:", len(sent_idx_to_tokens))
-        results = []
+        results = {}
+        results['data'] = []
+        label_to_text = defaultdict(Counter)
         for pos_ids, tokens in sent_idx_to_tokens.items():
             sent_idx, token_ids = pos_ids[0], pos_ids[1:]
             # token_ids = sent_idx_to_token_ids[sent_idx]
-            texts = []
+            texts_n_labels = []
             match_idx = 0
             for token in tokens:
                 if token.id in token_ids:
-                    # if token.text == parts[match_idx]:
-                    #     text = (token.text, "#")
-                    # else:
-                        # text = (token.text, parts[match_idx])
                     try:
-                        text = (token.text, parts[match_idx])
+                        label = parts[match_idx]
+                        text_n_label = (token.text, label)
+                        label_to_text[label][token.text.lower()] += 1
                         match_idx += 1
                     except:
                         break
                 else:
-                    text = (token.text, None)
-                texts.append(text)
+                    text_n_label = (token.text, None)
+                texts_n_labels.append(text_n_label)
             rs = {
                 "sent_idx": sent_idx,
                 "token_ids": token_ids,
-                "tokens": texts
+                "tokens": texts_n_labels,
             }
-            results.append(rs)
-        # print(list(sent_idx_to_tokens.keys()))
+            results['data'].append(rs)
+        token_stats = {}
+        # calculate the percenage of each text in each label
+        for label, text_counter in label_to_text.items():
+            token_stats[label] = {}
+            sum_count = sum(text_counter.values())
+            for text, count in text_counter.most_common(10):
+                token_stats[label][text] = {"count": count, "percent": round(count / sum_count * 100, 2)}
+        results["token_stats"] = token_stats
         return results
 
     def get_pattern_df(self, task_id=None, limit=None):
@@ -142,9 +147,6 @@ class DBManager:
                 query = query.limit(limit)
             for pattern in query.all():
                 values.append(dict(pattern))
-            # stmt = (select(Pattern))
-            # print(stmt)
-            # print(session.exec(stmt).all())
         df = pd.DataFrame(values).drop(["_sa_instance_state", "id"], axis=1).reset_index()
         df['index'] += 1
         cols = ['index', 'form', 'left', 'right', 'count', 'score']

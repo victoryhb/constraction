@@ -9,6 +9,7 @@ import plotly.express as px
 
 # st.set_page_config(layout='wide')
 
+st.markdown("<style>[data-testid='stHorizontalBlock'] {align-items:center}</style>", unsafe_allow_html=True)
 
 @dataclass
 class Target:
@@ -63,6 +64,9 @@ def annotation_page():
             st.markdown("**No projects currently exist**")
 
 def get_db_manager():
+    if "project" not in st.session_state:
+        st.error("Please select a project first")
+        return
     if 'db_manager' in st.session_state.project:
         manager = st.session_state.project['db_manager']
     else:
@@ -170,10 +174,10 @@ def extraction_page():
             mine_patterns(task_name, config)
         st.success("Patterns mined successfully!")
 
-def show_pattern_in_context(manager, pattern, max_n=None, key=None):
+def show_pattern_in_context(manager, pattern, max_n=None, show_stats=False, key=None):
     results = manager.query_pattern(pattern, max_n)
     all_sent_data = []
-    for i, result in enumerate(results):
+    for i, result in enumerate(results['data']):
         tokens = []
         for t in result['tokens']:
             data = {'text': t[0]}
@@ -183,6 +187,9 @@ def show_pattern_in_context(manager, pattern, max_n=None, key=None):
         all_sent_data.append({'tokens': tokens, "labelOrientation": "vertical"})
         if max_n and i == max_n - 1:
             break
+    if show_stats:
+        if 'token_stats' in results:
+            st.write(results['token_stats'])
     text_annotation(all_sent_data, key=key)
 
 
@@ -223,10 +230,13 @@ def explore_page():
     else:
         for i, row in enumerate(selected_rows):
             with st.expander(f"{row['form']} ({row['count']})", expanded=True):
-                left, right = st.columns([3, 7])
+                left, mid, right = st.columns([3, 3, 4])
                 with left:
                     max_lines = st.number_input("Max lines", value=3, step=1, key=f"max_lines{i}")
-                show_pattern_in_context(manager, row['form'], max_n=max_lines, key=f'context{i}')
+                with mid:
+                    show_stats = st.selectbox("Show stats", ["No", "Yes"], key=f"show_stats{i}") == "Yes"
+                show_pattern_in_context(manager, row['form'], max_n=max_lines, 
+                show_stats=show_stats, key=f'context{i}')
 
 
 def output_page():
@@ -249,9 +259,6 @@ if step == "Annotation":
 elif step == "Mining":
     extraction_page()
 elif step == "Explore":
-    if "project" not in st.session_state:
-        st.error("Please select a project first")
-    else:
-        explore_page()
+    explore_page()
 elif step == "Output":
     output_page()
