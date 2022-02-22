@@ -70,13 +70,17 @@ proc getDatabase*(db_path: string): DbConn =
 
 proc storeTokensInDatabase*(corpus: Corpus, db_path: string) =
     var db = getDatabase(db_path)
-    db.exec(sql"BEGIN TRANSACTION;")
-    for sentence in corpus.sentences:
-        db.exec(sql"INSERT INTO sentence (id, file_name) VALUES (?,?);", sentence.id, sentence.file_name)
-        for token in sentence.tokens:
-            var cmd = sql"INSERT INTO token (id, sentence_id, text, lemma, upos, xpos, deprel, supersense, head_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-            db.exec(cmd, token.id, sentence.id, token.text, token.lemma, token.upos, token.xpos, token.deprel, token.supersense, token.head_id)
-    db.exec(sql"COMMIT;")
+    try:
+        db.exec(sql"BEGIN TRANSACTION;")
+        for sentence in corpus.sentences:
+            db.exec(sql"INSERT INTO sentence (id, file_name) VALUES (?,?);", sentence.id, sentence.file_name)
+            for token in sentence.tokens:
+                var cmd = sql"INSERT INTO token (id, sentence_id, text, lemma, upos, xpos, deprel, supersense, head_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                db.exec(cmd, token.id, sentence.id, token.text, token.lemma, token.upos, token.xpos, token.deprel, token.supersense, token.head_id)
+        db.exec(sql"COMMIT;")
+    except:
+        db.close()
+        raise
 
 
 proc loadJson*(json_path: string): Corpus =

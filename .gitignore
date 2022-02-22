@@ -4,3 +4,6 @@
 .vscode
 learner/notes.md
 projects/
+**/*.so
+.gitignore
+learner/mining

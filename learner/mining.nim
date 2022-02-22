@@ -308,6 +308,7 @@ type ScoredPattern = ref object
     right: string
     score: float64
     count: int
+    task_id: int
 
 proc hash(self: ScoredPattern): Hash =
     var h: Hash = 0
@@ -329,6 +330,7 @@ type PatternAnalyzer = ref object
     min_pattern_freq: int
     affected_sent_idxes: HashSet[int]
     association_measure: MeasureType
+    task_id: int
 
 proc init(self: PatternAnalyzer, config: JsonNode = parseJson("{}")) =
     self.indexer = PatternIndexer()
@@ -456,13 +458,13 @@ proc storePositions(db: DbConn, analyzer: PatternAnalyzer, sp: ScoredPattern) =
     # TODO: refactor using insertRowsToDB
     var pattern = sp.pattern
     var pattern_id: int64
-    var id = db.getValue(sql"SELECT id FROM pattern WHERE form = ?", pattern)
+    var id = db.getValue(sql"SELECT id FROM pattern WHERE form = ? AND task_id = ?", pattern, analyzer.task_id)
     if id != "":
         pattern_id = parseInt(id)
     else:
         pattern_id = db.insertID(
-            sql"INSERT INTO pattern (form, left, right, score, count) VALUES (?, ?, ?, ?, ?)", 
-            pattern, sp.left, sp.right, sp.score, sp.count
+            sql"INSERT INTO pattern (form, left, right, score, count, task_id) VALUES (?, ?, ?, ?, ?, ?)", 
+            pattern, sp.left, sp.right, sp.score, sp.count, analyzer.task_id
         )
     db.exec(sql"BEGIN TRANSACTION;")
     for pos in analyzer.indexer.getPositions(pattern):
@@ -471,24 +473,31 @@ proc storePositions(db: DbConn, analyzer: PatternAnalyzer, sp: ScoredPattern) =
     db.exec(sql"COMMIT;")
 
 
-proc mine_patterns(json_path: string, output_folder: string, config: JsonNode, create_database: bool = false) {.exportpy.} =
+proc mine_patterns(json_path: string, output_folder: string, 
+        config: JsonNode, store_in_database: bool = false, 
+        task_id: int = -1) {.exportpy.} =
     var corpus = loadJson(json_path)
-    var db_path = output_folder & "db.sqlite3"
+    var db_path = joinPath(output_folder, "db.sqlite3")
     var db: DbConn
     var on_merge: proc (pa: PatternAnalyzer, scored_pattern: ScoredPattern)
-    if create_database:
-        storeTokensInDatabase(corpus, db_path)
+    if store_in_database:
+        try:
+            storeTokensInDatabase(corpus, db_path)
+        except:
+            let e = getCurrentException()
+            let msg = getCurrentExceptionMsg()
+            echo "Got exception ", repr(e), " with message ", msg
         db = getDatabase(db_path)
         on_merge = (pa: PatternAnalyzer, scored_pattern: ScoredPattern) => 
             db.storePositions(pa, scored_pattern)
-    var analyzer = PatternAnalyzer(corpus: corpus)
+    var analyzer = PatternAnalyzer(corpus: corpus, task_id: task_id)
     analyzer.init(config=config)
     var n_per_round = config{"n_per_round"}.getInt(10)
     if analyzer.indexer.isTargetMode:
         n_per_round = 1
     var n_total_rounds = config{"n_total_rounds"}.getInt(100)
     echo fmt"Total sents: {corpus.sentences.len}; min_score_threshold: {analyzer.min_score_threshold}; min_pattern_freq: {analyzer.min_pattern_freq}; n_per_round: {n_per_round}; n_total_rounds: {n_total_rounds}"
-    var file = open(output_folder & "temp_output.txt", fmWrite)
+    var file = open(joinPath(output_folder, "temp_output.txt"), fmWrite)
     for i in 1..n_total_rounds:
         var last_pattern_count = analyzer.merged_patterns.len
         var n_sents = if analyzer.affected_sent_idxes.len > 0:
@@ -498,9 +507,9 @@ proc mine_patterns(json_path: string, output_folder: string, config: JsonNode, c
         file.writeResults(analyzer, scored_patterns)
         if last_pattern_count == analyzer.merged_patterns.len:
             break
-    file = open(output_folder & "output.txt", fmWrite)
+    file = open(joinPath(output_folder, "output.txt"), fmWrite)
     file.writeResults(analyzer, analyzer.merged_patterns)
-    if create_database:
+    if store_in_database:
         db.close()
 
 
@@ -530,23 +539,19 @@ proc example() =
     var config = parseJson(config_str)
 
     var input_folder = "/Users/yan/Downloads/patterns/json_transformed/"
-    var output_folder = input_folder
-    var json_basename: string
-
-    json_basename = "merge-dep-supersenses1000.json"
-    # json_basename = "merge-dep-supersenses.json"
+    var json_basename = "corpus.json"
     
     if detectOs(Ubuntu):
-        input_folder = "/home/victor/code/corpus/cxgnet/nim/patterns/"
-        json_basename = "merge-dep.json"
+        input_folder = "/home/victor/code/constraction/projects/fire/"
 
-    var json_path = input_folder & json_basename
-    mine_patterns(json_path, output_folder, config, create_database=false)
+    var output_folder = input_folder
+    var json_path = joinPath(input_folder, json_basename)
+    mine_patterns(json_path, output_folder, config, store_in_database=true)
 
 
-if isMainModule:
-    benchmark "main":
-        example()
+# if isMainModule:
+#     benchmark "main":
+#         example()
 
 # TODO:
 # investigate BNC spoken FS

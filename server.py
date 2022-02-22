@@ -28,7 +28,7 @@ project_data_folder = "projects"
 
 def annotation_page():
     os.makedirs(project_data_folder, exist_ok=True)
-    mode = option_menu(None, ["New Project", "Existing Projects"], orientation="horizontal")
+    mode = option_menu(None, ["Existing Projects", "New Project"], orientation="horizontal")
     if mode == "New Project":
         title = st.text_input("Project Title")
         uploaded_file = st.file_uploader("Upload an annotated file (JSON format)", type="json")
@@ -62,15 +62,35 @@ def annotation_page():
         else:
             st.markdown("**No projects currently exist**")
 
+def get_db_manager():
+    if 'db_manager' in st.session_state.project:
+        manager = st.session_state.project['db_manager']
+    else:
+        from learner import db_manager
+        manager = db_manager.DBManager(os.path.join(st.session_state.project['folder'], "db.sqlite3"))
+        st.session_state.project['db_manager'] = manager
+    return manager
 
-def mining_page():
+def mine_patterns(name, config):
+    import learner.mining as mining
+    manager = get_db_manager()
+    manager.create_database(on_exist="ignore")
+    folder = st.session_state.project['folder']
+    json_path = os.path.join(folder, "corpus.json")
+    task_id = manager.new_task(name, config)
+    mining.mine_patterns(json_path, folder, config, store_in_database=True, task_id=task_id)
+
+def extraction_page():
     token_type_mapping = {"coarse-grained POS": "upos", "fine-grained POS": "xpos"}
 
     association_measure_mapping = {'MI': "pmi", "MI2": "pmi2", "MI3": "pmi3",
                                 "Log-Likelihood": "loglikelihood", "Delta-P": "delta-p", "Log Dice": "logdice"}
 
     annotated_layers = ["lemma", "coarse-grained POS", "fine-grained POS", "supersense"]
-    mode = option_menu(None, ["Target Mode", "General Mode"], orientation="horizontal")
+    mode = option_menu(None, ["General Mode", "Target Mode", ], orientation="horizontal")
+    task_name = st.text_input("Task name", placeholder="Unnamed")
+    if not task_name:
+        task_name = "Unnamed"
     if mode == "Target Mode":
         with st.expander("Target Definitions", expanded=True):
             if 'targets' not in st.session_state:
@@ -86,12 +106,15 @@ def mining_page():
 
     with st.expander("General Settings", expanded=True):
         left, mid, right = st.columns(3)
-        association_measure = left.selectbox("Association Measure", association_measure_mapping.keys())
-        score_threshold = mid.number_input("Min Score Threshold", value=3.0, step=0.1, format="%.1f")
+        association_measure = left.selectbox("Association Measure", association_measure_mapping.keys(), index=1)
+        score_threshold = mid.number_input("Min Score Threshold", value=6.0, step=0.1, format="%.1f")
         min_pattern_freq_per_mill = right.number_input("Min Frequency per Million Words", value=10, step=1)
         token_types = st.multiselect("Token Types", annotated_layers, default=annotated_layers)
+        for i, token_type in enumerate(token_types):
+            if token_type in token_type_mapping:
+                token_types[i] = token_type_mapping[token_type]
         left, right = st.columns(2)
-        n_total_rounds = left.number_input("Number of rounds", value=100, step=10)
+        n_total_rounds = left.number_input("Number of rounds", value=10, step=10)
         n_per_round = right.number_input("Number of patterns to mine per round", value=10, step=10)
 
     with st.expander("Special Values", expanded=False):
@@ -105,9 +128,9 @@ def mining_page():
             value.type = left.selectbox("Type", ["Allowed", "Ignored"], key=f"value_type{i}")
             value.layer = mid.selectbox("Layer", annotated_layers, key=f"value_layer{i}")
             value.values = right.text_input("Values (separated by comma)", key=f"special_value{i}")
-    left, mid, right = st.columns([3, 2, 3])
 
-    if mid.button("Mine Patterns"):
+    left, mid, right = st.columns([3, 3, 3])
+    if mid.button("Extract Constructions"):
         config = {
             "association_measure": association_measure_mapping[association_measure],
             "min_score_threshold": score_threshold,
@@ -130,8 +153,22 @@ def mining_page():
         for value in st.session_state.special_values:
             dic = allowed_values if value.type == "Allowed" else ignored_values
             dic[value.layer] = [v.strip() for v in value.values.split(",")]
+        if not allowed_values:
+            allowed_values = {
+                "upos": ["PRON", "NOUN"],
+                "xpos": ["WH", "VBG", "VBN"],
+                "deprel": ["ccomp"]
+            }
+        if not ignored_values:
+            ignored_values = {
+                "lemma": ["'", "a", "an", "the", "he", "his", "she", "her", "my", "our", "they", "their", "erm", "may", "should", "will", "shall", "can", "might", "must", "would", "ought", "could"]
+            }
         config['allowed_values'] = allowed_values
         config['ignored_values'] = ignored_values
+        print(config)
+        with st.spinner("Mining patterns..."):
+            mine_patterns(task_name, config)
+        st.success("Patterns mined successfully!")
 
 def show_pattern_in_context(manager, pattern, max_n=None, key=None):
     results = manager.query_pattern(pattern, max_n)
@@ -143,23 +180,24 @@ def show_pattern_in_context(manager, pattern, max_n=None, key=None):
             if t[1]:
                 data['labels'] = [t[1]]
             tokens.append(data)
+        all_sent_data.append({'tokens': tokens, "labelOrientation": "vertical"})
         if max_n and i == max_n - 1:
             break
-        all_sent_data.append({'tokens': tokens, "labelOrientation": "vertical"})
     text_annotation(all_sent_data, key=key)
 
-def get_db_manager():
-    if 'db_manager' in st.session_state.project:
-        manager = st.session_state.project['db_manager']
-    else:
-        import db_manager
-        manager = db_manager.DBManager(os.path.join(st.session_state.project['folder'], "db.sqlite3"))
-        st.session_state.project['db_manager'] = manager
-    return manager
 
 def explore_page():
-    manager = get_db_manager()
-    df = manager.get_pattern_df()
+    try:
+        manager = get_db_manager()
+        tasks = manager.get_all_tasks()
+        task_info = [f"{t['id']} ({t['name']})" for t in tasks]
+        st.subheader("Extracted Constructions")
+        left, right = st.columns([1, 3])
+        task_id = left.selectbox("Task", task_info)
+        df = manager.get_pattern_df(task_id=int(task_id.split(" ")[0]))
+    except Exception as e:
+        st.error(f"Error: {e}")
+        return
     # df = df.drop(["left", "right"], axis=1)
     gb = GridOptionsBuilder.from_dataframe(df)
     gb.configure_selection('multiple', use_checkbox=True, rowMultiSelectWithClick=True)
@@ -209,10 +247,10 @@ with st.sidebar:
 if step == "Annotation":
     annotation_page()
 elif step == "Mining":
-    mining_page()
+    extraction_page()
 elif step == "Explore":
     if "project" not in st.session_state:
-        st.write("Please select a project first")
+        st.error("Please select a project first")
     else:
         explore_page()
 elif step == "Output":
