@@ -7,3 +7,4 @@ projects/
 **/*.so
 .gitignore
 learner/mining
+.gitignore

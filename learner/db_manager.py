@@ -138,6 +138,12 @@ class DBManager:
         return results
 
     def get_pattern_df(self, task_id=None, limit=None):
+        def transform_pattern_form(form):
+            parts = form.split("~")
+            for i, part in enumerate(parts):
+                if "." in part or (len(part) > 1 and all(c.isupper() for c in part)):
+                    parts[i] = "<" + part.lower() + ">"
+            return " ".join(parts)
         values = []
         with Session(self.engine) as session:
             query = session.query(Pattern)
@@ -148,6 +154,7 @@ class DBManager:
             for pattern in query.all():
                 values.append(dict(pattern))
         df = pd.DataFrame(values).drop(["_sa_instance_state", "id"], axis=1).reset_index()
+        df['form'] = df['form'].apply(transform_pattern_form)
         df['index'] += 1
         cols = ['index', 'form', 'left', 'right', 'count', 'score']
         return df.reindex(columns=cols)

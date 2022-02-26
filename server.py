@@ -223,9 +223,11 @@ def explore_page():
         left, right = st.columns(2)
         with left:
             fig = px.bar(df_selected, x="form", y='count', color="form")
+            fig.update_layout(xaxis={'showticklabels': False})
             st.plotly_chart(fig, use_container_width=True)
         with right:
             fig = px.bar(df_selected, x="form", y='score', color="form")
+            fig.update_layout(xaxis={'showticklabels': False})
             st.plotly_chart(fig, use_container_width=True)
     else:
         for i, row in enumerate(selected_rows):
