@@ -18,11 +18,9 @@ streamlit run server.py
 ```
 
 ## Screenshots
-![](./images/screenshot 1.png)
-
-![](./images/screenshot 2.png)
-
-![](./images/screenshot 3.png)
+![](./images/screenshot1.png)
+![](./images/screenshot2.png)
+![](./images/screenshot3.png)
 
 ## License
     GNU GENERAL PUBLIC LICENSE, Version 3
