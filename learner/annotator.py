@@ -3,6 +3,7 @@ import glob
 import json
 import pandas as pd
 import numpy as np
+import sys
 from booknlp.booknlp import BookNLP
 
 
@@ -80,4 +81,6 @@ def process_folder(input_folder, output_path):
 
 
 if __name__ == "__main__":
-    process_folder("data", "data/patterns.json")
+    # process the data from first argument and output to second argument
+    process_folder(sys.argv[1], sys.argv[2])
+    # process_folder("data", "data/patterns.json")

@@ -5,15 +5,16 @@ It comes with a browser-based interface which exposes configurable parameters fo
 Constraction is developed in Python, with core extraction functions optimized using [Nim](https://nim-lang.org), a highly efficient compiled programming language with Python-like syntax. Constraction uses the [spaCy](https://spacy.io/) library to extract multiple layers of annotation including token lemmas, parts-of-speech (with fine-grained and coarse-grained tagsets) and syntactic dependency relationships. For semantic annotation supersense (coarse-grained semantic senses), Constraction utilizes annotators from the [BookNLP](https://github.com/booknlp/booknlp) library and integrates its results with spaCy annotations.
 
 ## Installation
-To install, first download the repository, and compile the Nim source code for your environment. Then use pip to install Python dependencies including spaCy, BookNLP and Streamlit. Finally, run the server with the `streamlit` command and browse the frontend interface (default address: http://localhost:8080).
+To install, first download the repository, and compile the Nim source code for your environment. Then use pip to install Python dependencies including spaCy, BookNLP and Streamlit. Finally, run the server with the `streamlit` command and browse the frontend interface (default address: http://localhost:8501). Prepare your text files in the data folder and run annotator.py to annotate them, generating a json file for use in subsequent analysis.
 Note that Nim 1.6.0+ and Python 3.7+ are required for the compilation and execution. 
 ```
 git clone https://github.com/victoryhb/constraction.git
 cd constraction/learner
 nim c --threads:on --app:lib -d:danger --opt:speed -d:nimStrictDelete --gc:orc --out:mining.so mining
-cd ..
-pip install spacy booknlp sqlmodel pandas plotly streamlit streamlit-option-menu streamlit_text_annotation streamlit-aggrid
+pip install spacy booknlp sqlmodel pandas plotly streamlit streamlit-option-menu streamlit-text-annotation streamlit-aggrid
 python -m spacy download en_core_web_trf
+python annotator.py "path/to/text/folder/" "path/to/output/folder/patterns.json"
+cd ..
 streamlit run server.py
 ```
 
