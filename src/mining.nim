@@ -513,7 +513,7 @@ proc mine_patterns(json_path: string, output_folder: string,
         db.close()
 
 
-proc example() =
+proc example(input_folder: string) =
     var config_str = """
     {
         "association_measure": "pmi2",
@@ -537,12 +537,7 @@ proc example() =
     }
     """
     var config = parseJson(config_str)
-
-    var input_folder = "/Users/yan/Downloads/patterns/json_transformed/"
     var json_basename = "corpus.json"
-    
-    if detectOs(Ubuntu):
-        input_folder = "/home/victor/code/constraction/projects/fire/"
 
     var output_folder = input_folder
     var json_path = joinPath(input_folder, json_basename)
@@ -552,17 +547,3 @@ proc example() =
 # if isMainModule:
 #     benchmark "main":
 #         example()
-
-# TODO:
-# investigate BNC spoken FS
-# filter final merged_patterns
-# compare outputs from two corpora of different sizes; better be stable!
-# calculate average score for each pattern
-# auto collapsing of inherited items
-# use phrases (e.g. no matter) as targets?
-# merge with MI first, then MI2?
-# remove something like have as AUX?
-# merge patterns using more than one measures at the same time?
-
-# connect pipeline from input to output
-# write system architecture

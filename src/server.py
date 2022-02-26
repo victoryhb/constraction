@@ -6,10 +6,9 @@ from streamlit_text_annotation import text_annotation
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 import pandas as pd
 import plotly.express as px
+import mining
+import db_manager
 
-# st.set_page_config(layout='wide')
-
-st.markdown("<style>[data-testid='stHorizontalBlock'] {align-items:center}</style>", unsafe_allow_html=True)
 
 @dataclass
 class Target:
@@ -24,8 +23,6 @@ class SpecialValue:
     layer: str = ""
     values: str = ""
 
-
-project_data_folder = "projects"
 
 def annotation_page():
     os.makedirs(project_data_folder, exist_ok=True)
@@ -70,13 +67,11 @@ def get_db_manager():
     if 'db_manager' in st.session_state.project:
         manager = st.session_state.project['db_manager']
     else:
-        from learner import db_manager
         manager = db_manager.DBManager(os.path.join(st.session_state.project['folder'], "db.sqlite3"))
         st.session_state.project['db_manager'] = manager
     return manager
 
 def mine_patterns(name, config):
-    import learner.mining as mining
     manager = get_db_manager()
     manager.create_database(on_exist="ignore")
     folder = st.session_state.project['folder']
@@ -247,20 +242,23 @@ def output_page():
     st.header("Click the button below to download the patterns for the current project")
     st.download_button("Download", file_name="patterns.csv", data=df.to_csv(index=False))
 
-steps = ["Annotation", "Mining", "Explore", "Output"]
 
-with st.sidebar:
-    st.title("Welcome to LCLearn")
-    if 'project' in st.session_state:
-        st.header(f"Current project: {st.session_state.project['title']}")
-    step = option_menu("Steps", steps)
+if __name__ == "__main__":
+    project_data_folder = "../projects"
 
+    steps = ["Annotation", "Mining", "Explore", "Output"]
 
-if step == "Annotation":
-    annotation_page()
-elif step == "Mining":
-    extraction_page()
-elif step == "Explore":
-    explore_page()
-elif step == "Output":
-    output_page()
+    with st.sidebar:
+        st.title("Welcome to LCLearn")
+        if 'project' in st.session_state:
+            st.header(f"Current project: {st.session_state.project['title']}")
+        step = option_menu("Steps", steps)
+
+    if step == "Annotation":
+        annotation_page()
+    elif step == "Mining":
+        extraction_page()
+    elif step == "Explore":
+        explore_page()
+    elif step == "Output":
+        output_page()

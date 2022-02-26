@@ -14,7 +14,7 @@ def annotate_folder(input_folder, output_folder):
         "spacy_model": "en_core_web_sm"
     }
     booknlp = BookNLP("en", model_params)
-
+    os.makedirs(output_folder, exist_ok=True)
     for path in glob.glob(os.path.join(input_folder, "*.txt")):
         book_id = os.path.basename(path)[:-4]
         if os.path.exists(os.path.join(output_folder, f"{book_id}.tokens")):

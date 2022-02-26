@@ -6,15 +6,14 @@ Constraction is developed in Python, with core extraction functions optimized us
 
 ## Installation
 To install, first download the repository, and compile the Nim source code for your environment. Then use pip to install Python dependencies including spaCy, BookNLP and Streamlit. Finally, run the server with the `streamlit` command and browse the frontend interface (default address: http://localhost:8501). Prepare your text files in the data folder and run annotator.py to annotate them, generating a json file for use in subsequent analysis.
-Note that Nim 1.6.0+ and Python 3.7+ are required for the compilation and execution. 
+Note that Nim 1.6.0+ and Python 3.7+ are required for compilation and execution. 
 ```
 git clone https://github.com/victoryhb/constraction.git
-cd constraction/learner
+cd constraction/src
 nim c --threads:on --app:lib -d:danger --opt:speed -d:nimStrictDelete --gc:orc --out:mining.so mining
 pip install spacy booknlp sqlmodel pandas plotly streamlit streamlit-option-menu streamlit-text-annotation streamlit-aggrid
-python -m spacy download en_core_web_trf
+python -m spacy download en_core_web_sm
 python annotator.py "path/to/text/folder/" "path/to/output/folder/patterns.json"
-cd ..
 streamlit run server.py
 ```
 
