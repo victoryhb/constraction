@@ -249,7 +249,7 @@ if __name__ == "__main__":
     steps = ["Annotation", "Mining", "Explore", "Output"]
 
     with st.sidebar:
-        st.title("Welcome to LCLearn")
+        st.title("Welcome to Constraction")
         if 'project' in st.session_state:
             st.header(f"Current project: {st.session_state.project['title']}")
         step = option_menu("Steps", steps)
