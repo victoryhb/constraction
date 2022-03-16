@@ -28,9 +28,4 @@ for sentence in sentences:
             print([(t['lemma'], t['xpos']) for t in tokens])
             count += 1
 print(count)
-
-# s = sentences[3160]
-# words = [(t['id'], t['text'], t['head_id']) for t in s['tokens']]
-# # print(" ".join(words))
-# print(words)
 print(modals)

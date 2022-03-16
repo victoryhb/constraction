@@ -160,9 +160,7 @@ class DBManager:
         return df.reindex(columns=cols)
 
 if __name__ == "__main__":
-    output_folder = "/Users/yan/Downloads/patterns/1000/"
-    if sys.platform == "linux":
-        output_folder = "/home/victor/code/corpus/cxgnet/nim/patterns/"
+    output_folder = "~/code/corpus/cxgnet/nim/patterns/"
     db_path = os.path.join(output_folder, "db.sqlite3")
 
     manager = DBManager(db_path)

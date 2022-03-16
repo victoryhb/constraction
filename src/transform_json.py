@@ -27,8 +27,8 @@ def load_and_transform(json_path):
 # TODO: transform the json file, and slice it into several segments
 
 
-in_json_path = "/Users/yan/Downloads/patterns/json/merge-dep-supersenses.json"
-out_data_folder = "/Users/yan/Downloads/patterns/json_transformed/"
+in_json_path = "~/Downloads/patterns/json/merge-dep-supersenses.json"
+out_data_folder = "~/Downloads/patterns/json_transformed/"
 os.makedirs(out_data_folder, exist_ok=True)
 
 out_files = {
