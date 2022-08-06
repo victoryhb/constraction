@@ -8,7 +8,6 @@ import std/enumerate, sugar
 import data_manager
 import std/db_sqlite
 import json
-import std/distros
 import nimpy
 
 
@@ -513,7 +512,7 @@ proc mine_patterns(json_path: string, output_folder: string,
         db.close()
 
 
-proc example(input_folder: string) =
+proc example(input_folder: string, json_basename="corpus.json") =
     var config_str = """
     {
         "association_measure": "pmi2",
@@ -532,18 +531,17 @@ proc example(input_folder: string) =
             "play": {"upos": "VERB"},
             "note": {},
         },
-        "n_total_rounds": 100,
+        "n_total_rounds": 10,
         "n_per_round": 10,
     }
     """
     var config = parseJson(config_str)
-    var json_basename = "corpus.json"
 
     var output_folder = input_folder
     var json_path = joinPath(input_folder, json_basename)
-    mine_patterns(json_path, output_folder, config, store_in_database=true)
+    mine_patterns(json_path, output_folder, config, store_in_database=false)
 
 
-# if isMainModule:
-#     benchmark "main":
-#         example()
+if isMainModule:
+    benchmark "main":
+        example("/Users/yan/Downloads/patterns/json_transformed", "merge-dep-supersenses1000.json")

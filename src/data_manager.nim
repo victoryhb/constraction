@@ -64,6 +64,16 @@ type Corpus* = ref object
     sentences*: seq[Sentence]
     total_token_count*: int
 
+
+proc loadJson*(json_path: string): Corpus =
+    result = Corpus() # ref objects need to be initialized first
+    let all_sents = readFile(json_path).fromJson(JsonSents)
+    for sent_idx, j_sent in enumerate(all_sents):
+        var sentence = Sentence(id: sent_idx, tokens: j_sent.tokens, file_name: j_sent.file_name)
+        result.sentences.add(sentence)
+        result.total_token_count += sentence.tokens.len
+
+
 proc getDatabase*(db_path: string): DbConn =
     # var db_path = output_folder & "db.sqlite3"
     result = open(db_path, "", "", "")
@@ -82,16 +92,6 @@ proc storeTokensInDatabase*(corpus: Corpus, db_path: string) =
         db.close()
         raise
 
-
-proc loadJson*(json_path: string): Corpus =
-    result = Corpus() # ref objects need to be initialized first
-    let all_sents = readFile(json_path).fromJson(JsonSents)
-    for sent_idx, j_sent in enumerate(all_sents):
-        var sentence = Sentence(id: sent_idx, tokens: j_sent.tokens, file_name: j_sent.file_name)
-        result.sentences.add(sentence)
-        result.total_token_count += sentence.tokens.len
-
-
 proc getTableCreationSQL(table_name: string, row: JsonNode): string =
     var table_info = ""
     var row_keys = row.keys.toSeq()
@@ -104,7 +104,6 @@ proc getTableCreationSQL(table_name: string, row: JsonNode): string =
         table_info = "id INTEGER PRIMARY KEY, " & table_info
     var cmd = fmt"CREATE TABLE IF NOT EXISTS {table_name} ({table_info})"
     return cmd
-
 
 proc insertRowsToDB*(db: DbConn, table_name: string, rows: seq[JsonNode],
         auto_create_table: bool = true) =
@@ -135,16 +134,12 @@ proc insertRowsToDB*(db: DbConn, table_name: string, rows: seq[JsonNode],
         db.exec(sql(cmd))
     db.exec(sql"COMMIT;")
 
-
-# proc myexec(db: DbConn, cmd: SqlQuery, args: varargs[string]) =
-#     # helper for turning a seq[string] for use in db.exec
-#     db.exec(cmd, args)
-
 # proc test(db: DbConn) =
 #     var rows = @[%*{"a": 1, "b": 2, "c": 3}]
 #     insertRowsToDB(db, "test", rows)
 #     var row2 = @[%*({"a": 123, "b": "test", "c": "order", "d": ""})]
 #     insertRowsToDB(db, "test2", row2)
+
 
 when isMainModule:
     import times
