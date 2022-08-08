@@ -27,17 +27,17 @@ proc addMerge(self: Sentence, token_ids: seq[int], token_types: seq[TokenType] =
             # i(ndividual) + m(erged); only i's type (==ttNil) needs setting
             token.chosen_type = token_types[0]
 
-proc getFormsByTokenId(self: Sentence, token_id: int, 
+proc getFormsByTokenId(self: Sentence, token_id: int,
         token_type: TokenType = ttLemma): OrderedTable[int, string] =
     var token: Token
     if token_id notin self.token_id_to_merge_idx:
         token = self.tokens[token_id]
-        result[token_id] = token.getText(token_type)
+        result[token_id] = fmt"{token.getText(token_type)}{ord(token_type)}"
     else:
         var merge = self.merges[self.token_id_to_merge_idx[token_id]]
         for tid in merge:
             token = self.tokens[tid]
-            result[tid] = token.getText(token.chosen_type)
+            result[tid] = fmt"{token.getText(token.chosen_type)}{ord(token.chosen_type)}"
 
 
 type Position = ref object
@@ -68,7 +68,7 @@ type PatternIndexer = ref object
     ignored_values: TableRef[TokenType, HashSet[string]]
     target_tokens: TableRef[string, Table[TokenType, string]]
     isTargetMode: bool
-    max_hops: int  # dep distance between two words in a sentence
+    max_hops: int               # dep distance between two words in a sentence
     merge_adjacent: bool
     corpus: Corpus
 
@@ -150,7 +150,7 @@ proc isValidTarget(self: PatternIndexer, token: Token): bool =
         return false
     return true
 
-proc indexBigram(self: PatternIndexer, sentence: Sentence, token: Token, 
+proc indexBigram(self: PatternIndexer, sentence: Sentence, token: Token,
         token_type: TokenType = ttNil, head: Token, head_type: TokenType = ttNil,
         sentence_cache: var HashSet[(int, TokenType)]): string {.inline.} =
     var token_id_to_forms = sentence.getFormsByTokenId(token.id, token_type = token_type)
@@ -190,22 +190,22 @@ proc indexBigram(self: PatternIndexer, sentence: Sentence, token: Token,
     for id in merged_ids:
         forms.add(token_id_to_forms[id])
     var merged_form = forms.join("~")
-    if merged_form notin self.pattern_to_bigrams:  # A~B + C == A + B~C
-        self.pattern_to_bigrams[merged_form] = if token_ids[0] < head_ids[0]: 
+    if merged_form notin self.pattern_to_bigrams: # A~B + C == A + B~C
+        self.pattern_to_bigrams[merged_form] = if token_ids[0] < head_ids[0]:
                 (token_form, head_form) else: (head_form, token_form)
     var pattern_pos = Position(sent_idx: sentence.id, token_ids: merged_ids)
     self.addPosition(merged_form, pattern_pos)
     return merged_form
 
-proc isInvalidToken(self: PatternIndexer, token:Token, token_type: TokenType): bool =
+proc isInvalidToken(self: PatternIndexer, token: Token, token_type: TokenType): bool =
     var text = token.getText(token_type)
     (
         token.skipped or text == "" or
-        (token_type in self.allowed_values and text notin self.allowed_values[token_type]) or 
+        (token_type in self.allowed_values and text notin self.allowed_values[token_type]) or
         (token_type in self.ignored_values and text in self.ignored_values[token_type])
     )
 
-proc getTokenHeadBigram(self: PatternIndexer, token: Token, 
+proc getTokenHeadBigram(self: PatternIndexer, token: Token,
         head: Token): seq[(Token, TokenType, Token, TokenType)] {.inline.} =
     var token_types: seq[TokenType]
     var head_types: seq[TokenType]
@@ -224,12 +224,12 @@ proc indexSentence(self: PatternIndexer, sentence: Sentence): HashSet[string] =
     # to remember whether a token/pattern has been indexed or not
     var sentence_cache = HashSet[(int, TokenType)]() # [token_idx, token_type]
     var bigrams: seq[(Token, TokenType, Token, TokenType)]
-    var bigram_ids: HashSet[(int, int)]  # to prevent duplicated indexing
+    var bigram_ids: HashSet[(int, int)] # to prevent duplicated indexing
     for token in sentence.tokens:
         var head = sentence.tokens[token.head_id]
         bigrams &= self.getTokenHeadBigram(token, head)
-        bigram_ids.incl((token.id, head.id))  # back get (head)
-        bigram_ids.incl((head.id, token.id))  # "get back" should not be indexed again later
+        bigram_ids.incl((token.id, head.id)) # back get (head)
+        bigram_ids.incl((head.id, token.id)) # "get back" should not be indexed again later
 
     # add adjacent bigrams in the sentence to bigrams if their ids are not in bigram_ids
     if self.merge_adjacent:
@@ -259,7 +259,7 @@ proc unindexSentence(self: PatternIndexer, sent_idx: int) =
 proc markSkippedTokens(self: PatternIndexer, token_lemma: string, sentence: Sentence) =
     var head_id_to_dep_ids: Table[int, HashSet[int]]
     var relations: Table[int, HashSet[int]] # relations between a token and all connected tokens
-    var to_mark: seq[(int, int)]  # token_id, level
+    var to_mark: seq[(int, int)] # token_id, level
     var marked_ids: HashSet[int]
     for token in sentence.tokens:
         var head_id = token.head_id
@@ -273,10 +273,10 @@ proc markSkippedTokens(self: PatternIndexer, token_lemma: string, sentence: Sent
         relations[token.id].incl(head_id)
         if token.lemma == token_lemma:
             to_mark.add((token.id, 1))
-            to_mark.add((token.head_id, 2))  # ignore its relations (to some degree)
+            to_mark.add((token.head_id, 2)) # ignore its relations (to some degree)
             if self.merge_adjacent and token.id + 1 < sentence.tokens.len:
                 var next_token = sentence.tokens[token.id + 1]
-                to_mark.add((next_token.id, 2))  # ignore its relations
+                to_mark.add((next_token.id, 2)) # ignore its relations
         token.skipped = true
 
     while to_mark.len > 0:
@@ -284,7 +284,7 @@ proc markSkippedTokens(self: PatternIndexer, token_lemma: string, sentence: Sent
         if token_id in marked_ids:
             continue
         marked_ids.incl(token_id)
-        if level > self.max_hops:  # unproductive
+        if level > self.max_hops: # unproductive
             continue
         sentence.tokens[token_id].skipped = false
         var rel_ids = relations[token_id]
@@ -333,11 +333,11 @@ type PatternAnalyzer = ref object
 
 proc init(self: PatternAnalyzer, config: JsonNode = parseJson("{}")) =
     self.indexer = PatternIndexer()
-    self.indexer.init(self.corpus, config=config)
+    self.indexer.init(self.corpus, config = config)
     self.total_token_count = self.corpus.total_token_count
     var min_pattern_freq_per_mill = config{"min_pattern_freq_per_mill"}.getInt()
     min_pattern_freq_per_mill = max(min_pattern_freq_per_mill, 1)
-    self.min_pattern_freq = max(int(self.total_token_count * min_pattern_freq_per_mill / 1000000 ), 3)
+    self.min_pattern_freq = max(int(self.total_token_count * min_pattern_freq_per_mill / 1000000), 3)
     # self.min_pattern_freq = min(self.min_pattern_freq, 10)
     var association_measure = config{"association_measure"}.getStr()
     self.association_measure = association_measure.toMeasureType()
@@ -361,7 +361,7 @@ proc scorePattern(self: PatternAnalyzer, pattern: string): float64 =
     of mtDeltaP:
         max(measures.deltaP(token1_count, token2_count, pattern_count, self.total_token_count))
     of mtPMI, mtPMI2, mtPMI3:
-        measures.pmi(@[token1_count, token2_count], pattern_count, 
+        measures.pmi(@[token1_count, token2_count], pattern_count,
                         self.total_token_count, ord(self.association_measure) + 1)
     of mtLogDice:
         measures.logDice(token1_count, token2_count, pattern_count, self.total_token_count)
@@ -375,13 +375,13 @@ proc mergePattern(self: PatternAnalyzer, pattern: string) =
     if "~" notin token1 and "~" notin token2: #  i + i
         # generate the chosen_type of each token to be passed
         if token1 in self.indexer.token_to_type and token2 in self.indexer.token_to_type:
-            token_types = @[self.indexer.token_to_type[token1], 
+            token_types = @[self.indexer.token_to_type[token1],
                             self.indexer.token_to_type[token2]]
     elif "~" notin token1: # i + m
         token_types = @[self.indexer.token_to_type[token1]]
     elif "~" notin token2: # m + i
         token_types = @[self.indexer.token_to_type[token2]]
-    # For the sentence "A accused B, C of something", 
+    # For the sentence "A accused B, C of something",
     # "accuse~of" is counted once, but "accuse~NOUN~of" is counted twice
     # To simplify, we count one pattern per sentence
     for pos in self.indexer.getPositions(pattern):
@@ -389,13 +389,13 @@ proc mergePattern(self: PatternAnalyzer, pattern: string) =
         sent.addMerge(pos.token_ids, token_types = token_types)
         self.affected_sent_idxes.incl(pos.sent_idx)
 
-proc mergeTopPatterns(self: PatternAnalyzer, n: int = 100, 
+proc mergeTopPatterns(self: PatternAnalyzer, n: int = 100,
         on_merge: proc (pa: PatternAnalyzer, scored_pattern: ScoredPattern) = nil
     ): OrderedSet[ScoredPattern] =
     var affected_sent_idxes = self.affected_sent_idxes
     self.affected_sent_idxes.clear()
     var candidates: HashSet[string]
-    if affected_sent_idxes.len == 0:  # first time
+    if affected_sent_idxes.len == 0: # first time
         for sentence in self.corpus.sentences:
             candidates.incl(self.indexer.indexSentence(sentence))
         self.indexer.markSentencesWithTargetTokens()
@@ -421,7 +421,7 @@ proc mergeTopPatterns(self: PatternAnalyzer, n: int = 100,
     # echo "top 5 patterns: ", scored_patterns.first(5)
     for i, sp in enumerate(scored_patterns):
         var pattern = sp.pattern
-        var (token1, token2) = self.indexer.pattern_to_bigrams[pattern]  # Why can't I put .fields here?
+        var (token1, token2) = self.indexer.pattern_to_bigrams[pattern] # Why can't I put .fields here?
         # avoid conflicts of components in bigrams in the same round
         if token1 in merged_tokens or token2 in merged_tokens:
             continue
@@ -433,8 +433,8 @@ proc mergeTopPatterns(self: PatternAnalyzer, n: int = 100,
         if on_merge != nil:
             on_merge(self, sp)
         self.candidate_patterns.excl(pattern)
-        if sp in self.merged_patterns:  # sometimes the same pattern is merged twice (A~B+C==A+B~C)
-            continue  # so that the number of merged_patterns always changes
+        if sp in self.merged_patterns: # sometimes the same pattern is merged twice (A~B+C==A+B~C)
+            continue # so that the number of merged_patterns always changes
         self.merged_patterns.incl(sp)
         result.incl(sp)
         if i >= n - 1:
@@ -462,18 +462,18 @@ proc storePositions(db: DbConn, analyzer: PatternAnalyzer, sp: ScoredPattern) =
         pattern_id = parseInt(id)
     else:
         pattern_id = db.insertID(
-            sql"INSERT INTO pattern (form, left, right, score, count, task_id) VALUES (?, ?, ?, ?, ?, ?)", 
+            sql"INSERT INTO pattern (form, left, right, score, count, task_id) VALUES (?, ?, ?, ?, ?, ?)",
             pattern, sp.left, sp.right, sp.score, sp.count, analyzer.task_id
         )
     db.exec(sql"BEGIN TRANSACTION;")
     for pos in analyzer.indexer.getPositions(pattern):
-        db.exec(sql"INSERT INTO position (pattern_id, sentence_id, token_ids) VALUES (?, ?, ?)", 
+        db.exec(sql"INSERT INTO position (pattern_id, sentence_id, token_ids) VALUES (?, ?, ?)",
             pattern_id, pos.sent_idx, pos.token_ids.join(","))
     db.exec(sql"COMMIT;")
 
 
-proc mine_patterns(json_path: string, output_folder: string, 
-        config: JsonNode, store_in_database: bool = false, 
+proc minePatterns(json_path: string, output_folder: string,
+        config: JsonNode, store_in_database: bool = false,
         task_id: int = -1) {.exportpy.} =
     var corpus = loadJson(json_path)
     var db_path = joinPath(output_folder, "db.sqlite3")
@@ -487,10 +487,10 @@ proc mine_patterns(json_path: string, output_folder: string,
             let msg = getCurrentExceptionMsg()
             echo "Got exception ", repr(e), " with message ", msg
         db = getDatabase(db_path)
-        on_merge = (pa: PatternAnalyzer, scored_pattern: ScoredPattern) => 
+        on_merge = (pa: PatternAnalyzer, scored_pattern: ScoredPattern) =>
             db.storePositions(pa, scored_pattern)
     var analyzer = PatternAnalyzer(corpus: corpus, task_id: task_id)
-    analyzer.init(config=config)
+    analyzer.init(config = config)
     var n_per_round = config{"n_per_round"}.getInt(10)
     if analyzer.indexer.isTargetMode:
         n_per_round = 1
@@ -511,8 +511,41 @@ proc mine_patterns(json_path: string, output_folder: string,
     if store_in_database:
         db.close()
 
+proc extractPatternsByRules(json_path: string, rule_path: string) =
+    var corpus = loadJson(json_path)
+    var analyzer = PatternAnalyzer(corpus: corpus)
+    var config = parseJson("""{"token_types": ["lemma", "upos", "xpos", "supersense"]}""")
+    analyzer.init(config=config)
+    for sentence in corpus.sentences:
+        discard analyzer.indexer.indexSentence(sentence)
+    var rule_lines = readFile(rule_path).split("\n")
+    var rules: seq[seq[string]] = @[]
+    for line in rule_lines:
+        if line.strip.len == 0:
+            continue
+        var rule = line.split(", ")[0..2]
+        rules.add(rule)
+    var affected_patterns: HashSet[string]
+    for rule in rules:
+        var pattern = rule[0]
+        for p in rule:
+            if p in affected_patterns:
+                for sent_idx in analyzer.affected_sent_idxes:
+                    analyzer.indexer.unindexSentence(sent_idx)
+                    discard analyzer.indexer.indexSentence(corpus.sentences[sent_idx])
+                analyzer.affected_sent_idxes.clear()
+                affected_patterns.clear()
+        try:
+            echo pattern, " ", pattern in analyzer.indexer.pattern_to_bigrams
+            analyzer.mergePattern(pattern)
+        except:
+            echo pattern, " not found"
+        for p in rule:
+            affected_patterns.incl(p)
+    echo rules
 
-proc example(input_folder: string, json_basename="corpus.json") =
+
+proc example(input_folder: string, json_basename = "corpus.json") =
     var config_str = """
     {
         "association_measure": "pmi2",
@@ -539,9 +572,11 @@ proc example(input_folder: string, json_basename="corpus.json") =
 
     var output_folder = input_folder
     var json_path = joinPath(input_folder, json_basename)
-    mine_patterns(json_path, output_folder, config, store_in_database=false)
+    minePatterns(json_path, output_folder, config, store_in_database = false)
 
 
 if isMainModule:
+    # benchmark "main":
+    #     example("/Users/yan/Downloads/patterns/json_transformed", "merge-dep-supersenses1000.json")
     benchmark "main":
-        example("/Users/yan/Downloads/patterns/json_transformed", "merge-dep-supersenses1000.json")
+        extractPatternsByRules("/Users/yan/Downloads/patterns/json_transformed/merge-dep-supersenses10000.json", "/Users/yan/Downloads/patterns/json_transformed/output.txt")
