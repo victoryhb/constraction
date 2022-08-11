@@ -1,7 +1,6 @@
 import hashes
 import tables
 
-
 template benchmark*(benchmarkName: string, code: untyped) =
   block:
     let t0 = epochTime()

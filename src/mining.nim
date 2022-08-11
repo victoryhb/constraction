@@ -1,4 +1,4 @@
-import os, times
+import os
 import strformat, strutils, sequtils
 import myutils
 import tables, sets, hashes
@@ -67,8 +67,8 @@ type PatternIndexer = ref object
     allowed_values: TableRef[TokenType, HashSet[string]]
     ignored_values: TableRef[TokenType, HashSet[string]]
     target_tokens: TableRef[string, Table[TokenType, string]]
-    isTargetMode: bool
-    max_hops: int               # dep distance between two words in a sentence
+    is_target_mode: bool
+    max_hops: int # dep distance between two words in a sentence
     merge_adjacent: bool
     corpus: Corpus
 
@@ -103,7 +103,7 @@ proc init(self: PatternIndexer, corpus: Corpus,
         for (token_type_str, value) in values.getFields().pairs():
             var token_type = token_type_str.toTokenType()
             self.target_tokens[key][token_type] = value.getStr()
-    self.isTargetMode = self.target_tokens.len > 0
+    self.is_target_mode = self.target_tokens.len > 0
 
     self.max_hops = 2
     self.merge_adjacent = true
@@ -180,7 +180,7 @@ proc indexBigram(self: PatternIndexer, sentence: Sentence, token: Token,
         self.addPosition(head_form, head_pos)
         sentence_cache.incl((head.id, head_type))
 
-    if self.isTargetMode:
+    if self.is_target_mode:
         var has_merged_before = token_type == ttNil or head_type == ttNil
         if not ((self.isValidTarget(token) or self.isValidTarget(head)) or has_merged_before):
             return
@@ -253,6 +253,7 @@ proc unindexSentence(self: PatternIndexer, sent_idx: int) =
         for pos in self.sent_idx_to_positions[sent_idx]:
             # pos.disabled = true
             self.pattern_positions[pattern].excl(pos)
+        # self.pattern_positions[pattern].excl(self.sent_idx_to_positions[sent_idx].toHashSet())
     self.sent_idx_to_positions.del(sent_idx)
     self.sent_idx_to_pattern_counts.del(sent_idx)
 
@@ -295,7 +296,7 @@ proc markSkippedTokens(self: PatternIndexer, token_lemma: string, sentence: Sent
                 to_mark.add((sentence.tokens[rel_id].head_id, level + 1))
 
 proc markSentencesWithTargetTokens(self: PatternIndexer) =
-    if self.isTargetMode and self.max_hops > 0:
+    if self.is_target_mode and self.max_hops > 0:
         for lemma in self.target_tokens.keys():
             for pos in self.getPositions(lemma):
                 self.markSkippedTokens(lemma, self.corpus.sentences[pos.sent_idx])
@@ -492,7 +493,7 @@ proc minePatterns(json_path: string, output_folder: string,
     var analyzer = PatternAnalyzer(corpus: corpus, task_id: task_id)
     analyzer.init(config = config)
     var n_per_round = config{"n_per_round"}.getInt(10)
-    if analyzer.indexer.isTargetMode:
+    if analyzer.indexer.is_target_mode:
         n_per_round = 1
     var n_total_rounds = config{"n_total_rounds"}.getInt(100)
     echo fmt"Total sents: {corpus.sentences.len}; min_score_threshold: {analyzer.min_score_threshold}; min_pattern_freq: {analyzer.min_pattern_freq}; n_per_round: {n_per_round}; n_total_rounds: {n_total_rounds}"
@@ -511,10 +512,16 @@ proc minePatterns(json_path: string, output_folder: string,
     if store_in_database:
         db.close()
 
-proc extractPatternsByRules(json_path: string, rule_path: string) =
+
+proc processCorpus*(json_path, config_str: string) =
+    var config = parseJson(config_str)
+    var input_folder = splitPath(json_path).head
+    minePatterns(json_path, input_folder, config, store_in_database = false)
+
+proc extractPatternsByRules*(json_path: string, rule_path: string, config_str: string) =
     var corpus = loadJson(json_path)
     var analyzer = PatternAnalyzer(corpus: corpus)
-    var config = parseJson("""{"token_types": ["lemma", "upos", "xpos", "supersense"]}""")
+    var config = parseJson(config_str)
     analyzer.init(config=config)
     for sentence in corpus.sentences:
         discard analyzer.indexer.indexSentence(sentence)
@@ -535,6 +542,7 @@ proc extractPatternsByRules(json_path: string, rule_path: string) =
                     discard analyzer.indexer.indexSentence(corpus.sentences[sent_idx])
                 analyzer.affected_sent_idxes.clear()
                 affected_patterns.clear()
+                break
         try:
             echo pattern, " ", pattern in analyzer.indexer.pattern_to_bigrams
             analyzer.mergePattern(pattern)
@@ -542,41 +550,3 @@ proc extractPatternsByRules(json_path: string, rule_path: string) =
             echo pattern, " not found"
         for p in rule:
             affected_patterns.incl(p)
-    echo rules
-
-
-proc example(input_folder: string, json_basename = "corpus.json") =
-    var config_str = """
-    {
-        "association_measure": "pmi2",
-        "min_score_threshold_": 6.0,
-        "min_pattern_freq_per_mill": 3,
-        "token_types": ["lemma", "upos", "xpos", "supersense"],
-        "allowed_values": {
-            "upos": ["PRON", "NOUN"],
-            "xpos": ["WH", "VBG", "VBN"],
-            "deprel": ["ccomp"]
-        },
-        "ignored_values": {
-            "lemma": ["'", "a", "an", "the", "he", "his", "she", "her", "my", "our", "they", "their", "erm", "may", "should", "will", "shall", "can", "might", "must", "would", "ought", "could"]
-        },
-        "target_tokens_": {
-            "play": {"upos": "VERB"},
-            "note": {},
-        },
-        "n_total_rounds": 10,
-        "n_per_round": 10,
-    }
-    """
-    var config = parseJson(config_str)
-
-    var output_folder = input_folder
-    var json_path = joinPath(input_folder, json_basename)
-    minePatterns(json_path, output_folder, config, store_in_database = false)
-
-
-if isMainModule:
-    # benchmark "main":
-    #     example("/Users/yan/Downloads/patterns/json_transformed", "merge-dep-supersenses1000.json")
-    benchmark "main":
-        extractPatternsByRules("/Users/yan/Downloads/patterns/json_transformed/merge-dep-supersenses10000.json", "/Users/yan/Downloads/patterns/json_transformed/output.txt")
