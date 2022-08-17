@@ -32,12 +32,14 @@ proc getFormsByTokenId(self: Sentence, token_id: int,
     var token: Token
     if token_id notin self.token_id_to_merge_idx:
         token = self.tokens[token_id]
-        result[token_id] = fmt"{token.getText(token_type)}{ord(token_type)}"
+        result[token_id] = token.getText(token_type)
+        # result[token_id] = fmt"{token.getText(token_type)}{ord(token_type)}"
     else:
         var merge = self.merges[self.token_id_to_merge_idx[token_id]]
         for tid in merge:
             token = self.tokens[tid]
-            result[tid] = fmt"{token.getText(token.chosen_type)}{ord(token.chosen_type)}"
+            result[tid] = token.getText(token.chosen_type)
+            # result[tid] = fmt"{token.getText(token.chosen_type)}{ord(token.chosen_type)}"
 
 
 type Position = ref object
@@ -146,9 +148,9 @@ proc isValidTarget(self: PatternIndexer, token: Token): bool =
         for token_type, value in requirements.pairs():
             if token.getText(token_type) != value:
                 return false
+        return true
     else:
         return false
-    return true
 
 proc indexBigram(self: PatternIndexer, sentence: Sentence, token: Token,
         token_type: TokenType = ttNil, head: Token, head_type: TokenType = ttNil,
@@ -220,7 +222,7 @@ proc getTokenHeadBigram(self: PatternIndexer, token: Token,
                 continue
             result.add((token, token_type, head, head_type))
 
-proc indexSentence(self: PatternIndexer, sentence: Sentence): HashSet[string] =
+proc indexSentence(self: PatternIndexer, sentence: Sentence): HashSet[string] {.discardable.} =
     # to remember whether a token/pattern has been indexed or not
     var sentence_cache = HashSet[(int, TokenType)]() # [token_idx, token_type]
     var bigrams: seq[(Token, TokenType, Token, TokenType)]
@@ -246,7 +248,7 @@ proc indexSentence(self: PatternIndexer, sentence: Sentence): HashSet[string] =
 
 proc unindexSentence(self: PatternIndexer, sent_idx: int) =
     if sent_idx notin self.sent_idx_to_pattern_counts:
-        # TODO: why is this necessary after markSentencesWithTargetTokens()?
+        # TODO: only necessary after markSentencesWithTargetTokens()?
         return
     for pattern, count in self.sent_idx_to_pattern_counts[sent_idx].pairs():
         self.pattern_counts[pattern] -= count # self.sent_idx_to_positions[sent_idx].len
@@ -258,6 +260,7 @@ proc unindexSentence(self: PatternIndexer, sent_idx: int) =
     self.sent_idx_to_pattern_counts.del(sent_idx)
 
 proc markSkippedTokens(self: PatternIndexer, token_lemma: string, sentence: Sentence) =
+    ## mark tokens as skipped if they are not related to token_lemma
     var head_id_to_dep_ids: Table[int, HashSet[int]]
     var relations: Table[int, HashSet[int]] # relations between a token and all connected tokens
     var to_mark: seq[(int, int)] # token_id, level
@@ -524,7 +527,7 @@ proc extractPatternsByRules*(json_path: string, rule_path: string, config_str: s
     var config = parseJson(config_str)
     analyzer.init(config=config)
     for sentence in corpus.sentences:
-        discard analyzer.indexer.indexSentence(sentence)
+        analyzer.indexer.indexSentence(sentence)
     var rule_lines = readFile(rule_path).split("\n")
     var rules: seq[seq[string]] = @[]
     for line in rule_lines:
@@ -539,7 +542,7 @@ proc extractPatternsByRules*(json_path: string, rule_path: string, config_str: s
             if p in affected_patterns:
                 for sent_idx in analyzer.affected_sent_idxes:
                     analyzer.indexer.unindexSentence(sent_idx)
-                    discard analyzer.indexer.indexSentence(corpus.sentences[sent_idx])
+                    analyzer.indexer.indexSentence(corpus.sentences[sent_idx])
                 analyzer.affected_sent_idxes.clear()
                 affected_patterns.clear()
                 break

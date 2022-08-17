@@ -19,7 +19,7 @@ var config_str = """
     "ignored_values": {
         "lemma": ["'", "a", "an", "the", "he", "his", "she", "her", "my", "our", "they", "their", "erm", "may", "should", "will", "shall", "can", "might", "must", "would", "ought", "could"]
     },
-    "target_tokens_": {
+    "target_tokens": {
         "play": {"upos": "VERB"},
         "note": {},
     },
