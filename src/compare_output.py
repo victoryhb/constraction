@@ -1,9 +1,12 @@
+import os
+from config import output_folder
+
 def get_ngrams(path):
     for line in open(path):
         yield line.split()[0]
 
-old_ngrams = list(get_ngrams("/Users/yan/Downloads/patterns/json_transformed/vary/output copy.txt"))
-new_ngrams = list(get_ngrams("/Users/yan/Downloads/patterns/json_transformed/vary/output.txt"))
+old_ngrams = list(get_ngrams(os.path.join(output_folder, "vary", "output copy.txt")))
+new_ngrams = list(get_ngrams(os.path.join(output_folder, "vary", "output.txt")))
 all_ngrams = {}
 for ngram in old_ngrams:
     if ngram not in all_ngrams:

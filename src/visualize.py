@@ -2,7 +2,9 @@
 from pyvis.network import Network
 import networkx as nx
 import csv
-output_fn = "/Users/yan/Downloads/patterns/json_transformed/output.txt"
+from config import output_folder
+import os
+output_fn = os.path.join(output_folder, "output.txt")
 from scipy.stats import zscore
 # G = nx.Graph()
 # %%

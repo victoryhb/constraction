@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from config import json_folder, output_folder
 
 substitutions = {
     "upos": {"PROPN": "NOUN", "PRON": "NOUN"},
@@ -27,9 +28,8 @@ def load_and_transform(json_path):
 # TODO: transform the json file, and slice it into several segments
 
 
-in_json_path = "~/Downloads/patterns/json/merge-dep-supersenses.json"
-out_data_folder = "~/Downloads/patterns/json_transformed/"
-os.makedirs(out_data_folder, exist_ok=True)
+in_json_path = os.path.join(json_folder, "merge-dep-supersenses.json")
+os.makedirs(output_folder, exist_ok=True)
 
 out_files = {
     "": None,
@@ -44,7 +44,7 @@ sentences = load_and_transform(in_json_path)
 for file_name, max_sentences in out_files.items():
     if max_sentences is None:
         max_sentences = len(sentences)
-    out_json_path = os.path.join(out_data_folder, os.path.basename(in_json_path)[:-5] + file_name + ".json")
+    out_json_path = os.path.join(output_folder, os.path.basename(in_json_path)[:-5] + file_name + ".json")
     print("Saving to ", out_json_path)
     json.dump(sentences[:max_sentences], open(out_json_path, "w"))
 print("elapsed time:", time.time() - start)

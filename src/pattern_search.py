@@ -1,6 +1,8 @@
+import os
 import json
+from config import output_folder
 
-path = "/Users/yan/Downloads/patterns/json_transformed/merge-dep-baby1000.json"
+path = os.path.join(output_folder, "merge-dep-baby1000.json")
 sentences = json.load(open(path))
 
 
