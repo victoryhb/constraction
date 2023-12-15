@@ -1,6 +1,7 @@
 # Constraction
 Constraction is an open-source tool for the automatic extraction and interactive exploration of linguistic constructions from arbitrary textual corpora. Constraction can take as input textual data with zero or more layers of linguistic annotation (lexical, syntactic and semantic)), and extract as output constructions of varying sizes and with different levels of abstraction.
 It comes with a browser-based interface which exposes configurable parameters for fine-tuning the extraction process. The interface also enables visual, interactive exploration of the extracted constructions.
+**This repository currently houses the original version of Constraction first developed in 2021. We are in the process of migrating a newer version to a more flexible architecture.**
 
 Constraction is developed in Python, with core extraction functions optimized using [Nim](https://nim-lang.org), a highly efficient compiled programming language with Python-like syntax. Constraction uses the [spaCy](https://spacy.io/) library to extract multiple layers of annotation including token lemmas, parts-of-speech (with fine-grained and coarse-grained tagsets) and syntactic dependency relationships. For semantic annotation supersense (coarse-grained semantic senses), Constraction utilizes annotators from the [BookNLP](https://github.com/booknlp/booknlp) library and integrates its results with spaCy annotations.
 
